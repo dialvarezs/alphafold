@@ -52,7 +52,7 @@ CHAIN_FEATURES = ('num_alignments', 'seq_length')
 
 
 def create_paired_features(
-    chains: Iterable[pipeline.FeatureDict]) ->  List[pipeline.FeatureDict]:
+    chains: Iterable[pipeline.FeatureDict]) -> List[pipeline.FeatureDict]:
   """Returns the original chains with paired NUM_SEQ features.
 
   Args:
@@ -67,22 +67,21 @@ def create_paired_features(
 
   if len(chains) < 2:
     return chains
-  else:
-    updated_chains = []
-    paired_chains_to_paired_row_indices = pair_sequences(chains)
-    paired_rows = reorder_paired_rows(
-        paired_chains_to_paired_row_indices)
+  updated_chains = []
+  paired_chains_to_paired_row_indices = pair_sequences(chains)
+  paired_rows = reorder_paired_rows(
+      paired_chains_to_paired_row_indices)
 
-    for chain_num, chain in enumerate(chains):
-      new_chain = {k: v for k, v in chain.items() if '_all_seq' not in k}
-      for feature_name in chain_keys:
-        if feature_name.endswith('_all_seq'):
-          feats_padded = pad_features(chain[feature_name], feature_name)
-          new_chain[feature_name] = feats_padded[paired_rows[:, chain_num]]
-      new_chain['num_alignments_all_seq'] = np.asarray(
-          len(paired_rows[:, chain_num]))
-      updated_chains.append(new_chain)
-    return updated_chains
+  for chain_num, chain in enumerate(chains):
+    new_chain = {k: v for k, v in chain.items() if '_all_seq' not in k}
+    for feature_name in chain_keys:
+      if feature_name.endswith('_all_seq'):
+        feats_padded = pad_features(chain[feature_name], feature_name)
+        new_chain[feature_name] = feats_padded[paired_rows[:, chain_num]]
+    new_chain['num_alignments_all_seq'] = np.asarray(
+        len(paired_rows[:, chain_num]))
+    updated_chains.append(new_chain)
+  return updated_chains
 
 
 def pad_features(feature: np.ndarray, feature_name: str) -> np.ndarray:
@@ -99,8 +98,12 @@ def pad_features(feature: np.ndarray, feature_name: str) -> np.ndarray:
     The feature with an additional padding row.
   """
   assert feature.dtype != np.dtype(np.string_)
-  if feature_name in ('msa_all_seq', 'msa_mask_all_seq',
-                      'deletion_matrix_all_seq', 'deletion_matrix_int_all_seq'):
+  if feature_name in {
+      'msa_all_seq',
+      'msa_mask_all_seq',
+      'deletion_matrix_all_seq',
+      'deletion_matrix_int_all_seq',
+  }:
     num_res = feature.shape[1]
     padding = MSA_PAD_VALUES[feature_name] * np.ones([1, num_res],
                                                      feature.dtype)
@@ -108,8 +111,7 @@ def pad_features(feature: np.ndarray, feature_name: str) -> np.ndarray:
     padding = [b'']
   else:
     return feature
-  feats_padded = np.concatenate([feature, padding], axis=0)
-  return feats_padded
+  return np.concatenate([feature, padding], axis=0)
 
 
 def _make_msa_df(chain_features: pipeline.FeatureDict) -> pd.DataFrame:
@@ -119,24 +121,21 @@ def _make_msa_df(chain_features: pipeline.FeatureDict) -> pd.DataFrame:
   per_seq_similarity = np.sum(
       query_seq[None] == chain_msa, axis=-1) / float(len(query_seq))
   per_seq_gap = np.sum(chain_msa == 21, axis=-1) / float(len(query_seq))
-  msa_df = pd.DataFrame({
+  return pd.DataFrame({
       'msa_species_identifiers':
-          chain_features['msa_species_identifiers_all_seq'],
+      chain_features['msa_species_identifiers_all_seq'],
       'msa_row':
-          np.arange(len(
-              chain_features['msa_species_identifiers_all_seq'])),
-      'msa_similarity': per_seq_similarity,
-      'gap': per_seq_gap
+      np.arange(len(chain_features['msa_species_identifiers_all_seq'])),
+      'msa_similarity':
+      per_seq_similarity,
+      'gap':
+      per_seq_gap,
   })
-  return msa_df
 
 
 def _create_species_dict(msa_df: pd.DataFrame) -> Dict[bytes, pd.DataFrame]:
   """Creates mapping from species to msa dataframe of that species."""
-  species_lookup = {}
-  for species, species_df in msa_df.groupby('msa_species_identifiers'):
-    species_lookup[species] = species_df
-  return species_lookup
+  return dict(msa_df.groupby('msa_species_identifiers'))
 
 
 def _match_rows_by_sequence_similarity(this_species_msa_dfs: List[pd.DataFrame]
@@ -171,8 +170,7 @@ def _match_rows_by_sequence_similarity(this_species_msa_dfs: List[pd.DataFrame]
     else:
       msa_rows = [-1] * take_num_seqs  # take the last 'padding' row
     all_paired_msa_rows.append(msa_rows)
-  all_paired_msa_rows = list(np.array(all_paired_msa_rows).transpose())
-  return all_paired_msa_rows
+  return list(np.array(all_paired_msa_rows).transpose())
 
 
 def pair_sequences(examples: List[pipeline.FeatureDict]
@@ -360,7 +358,7 @@ def _merge_features_from_multiple_chains(
     elif feature_name_split in TEMPLATE_FEATURES:
       merged_example[feature_name] = np.concatenate(feats, axis=1)
     elif feature_name_split in CHAIN_FEATURES:
-      merged_example[feature_name] = np.sum(x for x in feats).astype(np.int32)
+      merged_example[feature_name] = np.sum(iter(feats)).astype(np.int32)
     else:
       merged_example[feature_name] = feats[0]
   return merged_example
@@ -447,13 +445,11 @@ def deduplicate_unpaired_sequences(
 
   for chain in np_chains:
     # Convert the msa_all_seq numpy array to a tuple for hashing.
-    sequence_set = set(tuple(s) for s in chain['msa_all_seq'])
-    keep_rows = []
-    # Go through unpaired MSA seqs and remove any rows that correspond to the
-    # sequences that are already present in the paired MSA.
-    for row_num, seq in enumerate(chain['msa']):
-      if tuple(seq) not in sequence_set:
-        keep_rows.append(row_num)
+    sequence_set = {tuple(s) for s in chain['msa_all_seq']}
+    keep_rows = [
+        row_num for row_num, seq in enumerate(chain['msa'])
+        if tuple(seq) not in sequence_set
+    ]
     for feature_name in feature_names:
       if feature_name in msa_features:
         chain[feature_name] = chain[feature_name][keep_rows]

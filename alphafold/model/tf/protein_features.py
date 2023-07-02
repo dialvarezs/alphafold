@@ -111,9 +111,7 @@ def shape(feature_name: str,
         given.
   """
   features = features or FEATURES
-  if feature_name.endswith("_unnormalized"):
-    feature_name = feature_name[:-13]
-
+  feature_name = feature_name.removesuffix("_unnormalized")
   unused_dtype, raw_sizes = features[feature_name]
   replacements = {NUM_RES: num_residues,
                   NUM_SEQ: msa_length}
@@ -124,6 +122,7 @@ def shape(feature_name: str,
   sizes = [replacements.get(dimension, dimension) for dimension in raw_sizes]
   for dimension in sizes:
     if isinstance(dimension, str):
-      raise ValueError("Could not parse %s (shape: %s) with values: %s" % (
-          feature_name, raw_sizes, replacements))
+      raise ValueError(
+          f"Could not parse {feature_name} (shape: {raw_sizes}) with values: {replacements}"
+      )
   return sizes

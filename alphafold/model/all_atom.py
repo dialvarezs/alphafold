@@ -60,12 +60,9 @@ def get_chi_atom_indices():
   for residue_name in residue_constants.restypes:
     residue_name = residue_constants.restype_1to3[residue_name]
     residue_chi_angles = residue_constants.chi_angles_atoms[residue_name]
-    atom_indices = []
-    for chi_angle in residue_chi_angles:
-      atom_indices.append(
-          [residue_constants.atom_order[atom] for atom in chi_angle])
-    for _ in range(4 - len(atom_indices)):
-      atom_indices.append([0, 0, 0, 0])  # For chi angles not defined on the AA.
+    atom_indices = [[residue_constants.atom_order[atom] for atom in chi_angle]
+                    for chi_angle in residue_chi_angles]
+    atom_indices.extend([0, 0, 0, 0] for _ in range(4 - len(atom_indices)))
     chi_atom_indices.append(atom_indices)
 
   chi_atom_indices.append([[0, 0, 0, 0]] * 4)  # For UNKNOWN residue.
@@ -77,7 +74,7 @@ def atom14_to_atom37(atom14_data: jnp.ndarray,  # (N, 14, ...)
                      batch: Dict[str, jnp.ndarray]
                     ) -> jnp.ndarray:  # (N, 37, ...)
   """Convert atom14 to atom37 representation."""
-  assert len(atom14_data.shape) in [2, 3]
+  assert len(atom14_data.shape) in {2, 3}
   assert 'residx_atom37_to_atom14' in batch
   assert 'atom37_atom_exists' in batch
 
@@ -96,7 +93,7 @@ def atom37_to_atom14(
     atom37_data: jnp.ndarray,  # (N, 37, ...)
     batch: Dict[str, jnp.ndarray]) -> jnp.ndarray:  # (N, 14, ...)
   """Convert atom14 to atom37 representation."""
-  assert len(atom37_data.shape) in [2, 3]
+  assert len(atom37_data.shape) in {2, 3}
   assert 'residx_atom14_to_atom37' in batch
   assert 'atom14_atom_exists' in batch
 
@@ -1003,11 +1000,7 @@ def find_optimal_renaming(
   per_res_lddt = jnp.sum(mask * lddt, axis=[1, 2, 3])
   alt_per_res_lddt = jnp.sum(mask * alt_lddt, axis=[1, 2, 3])
 
-  # Decide for each residue, whether alternative naming is better.
-  # shape (N)
-  alt_naming_is_better = (alt_per_res_lddt < per_res_lddt).astype(jnp.float32)
-
-  return alt_naming_is_better  # shape (N)
+  return (alt_per_res_lddt < per_res_lddt).astype(jnp.float32)
 
 
 def frame_aligned_point_error(
@@ -1102,8 +1095,7 @@ def _make_renaming_matrices():
       for index, correspondence in enumerate(correspondences):
         renaming_matrix[index, correspondence] = 1.
     all_matrices[resname] = renaming_matrix.astype(np.float32)
-  renaming_matrices = np.stack([all_matrices[restype] for restype in restype_3])
-  return renaming_matrices
+  return np.stack([all_matrices[restype] for restype in restype_3])
 
 
 RENAMING_MATRICES = _make_renaming_matrices()

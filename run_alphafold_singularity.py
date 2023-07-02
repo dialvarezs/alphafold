@@ -56,16 +56,13 @@ def main():
     obsolete_pdbs_path = data_path / "pdb_mmcif" / "obsolete.dat"
 
     mounts = []
-    command_args = []
-
     # Mount each fasta path as a unique target directory
     target_fasta_paths = []
     for i, fasta_path in enumerate(args.fasta_paths):
         mount, target_path = _generate_mount(f"fasta_path_{i}", Path(fasta_path))
         mounts.append(mount)
         target_fasta_paths.append(target_path)
-    command_args.append(f"--fasta_paths={','.join(target_fasta_paths)}")
-
+    command_args = [f"--fasta_paths={','.join(target_fasta_paths)}"]
     # Mount database and output directories
     database_paths = [
         ("uniref90_database_path", uniref90_database_path),
@@ -180,7 +177,7 @@ def parse_arguments():
     parser.add_argument(
         "--max-template-date",
         "-t",
-        default=datetime.today().strftime("%Y-%m-%d"),
+        default=datetime.now().strftime("%Y-%m-%d"),
         help="Maximum template release date to consider "
         "(ISO-8601 format - i.e. YYYY-MM-DD). "
         "Important if folding historical test sets.",

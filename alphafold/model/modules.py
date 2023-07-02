@@ -83,10 +83,7 @@ def dropout_wrapper(module,
   should_apply_dropout = True if gc.eval_dropout else is_training
 
   if module.config.shared_dropout:
-    if module.config.orientation == 'per_row':
-      broadcast_dim = 0
-    else:
-      broadcast_dim = 1
+    broadcast_dim = 0 if module.config.orientation == 'per_row' else 1
   else:
     broadcast_dim = None
 
@@ -96,9 +93,7 @@ def dropout_wrapper(module,
                            is_training=should_apply_dropout,
                            broadcast_dim=broadcast_dim)
 
-  new_act = output_act + residual
-
-  return new_act
+  return output_act + residual
 
 
 def create_extra_msa_feature(batch):
@@ -225,26 +220,20 @@ class AlphaFoldIteration(hk.Module):
     ret['representations'] = representations
 
     def loss(module, head_config, ret, name, filter_ret=True):
-      if filter_ret:
-        value = ret[name]
-      else:
-        value = ret
+      value = ret[name] if filter_ret else ret
       loss_output = module.loss(value, batch)
       ret[name].update(loss_output)
       loss = head_config.weight * ret[name]['loss']
       return loss
 
     for name, (head_config, module) in heads.items():
-      # Skip PredictedLDDTHead and PredictedAlignedErrorHead until
-      # StructureModule is executed.
       if name in ('predicted_lddt', 'predicted_aligned_error'):
         continue
-      else:
-        ret[name] = module(representations, batch, is_training)
-        if 'representations' in ret[name]:
-          # Extra representations from the head. Used by the structure module
-          # to provide activations for the PredictedLDDTHead.
-          representations.update(ret[name].pop('representations'))
+      ret[name] = module(representations, batch, is_training)
+      if 'representations' in ret[name]:
+        # Extra representations from the head. Used by the structure module
+        # to provide activations for the PredictedLDDTHead.
+        representations.update(ret[name].pop('representations'))
       if compute_loss:
         total_loss += loss(module, head_config, ret, name)
 
@@ -267,10 +256,7 @@ class AlphaFoldIteration(hk.Module):
       if compute_loss:
         total_loss += loss(module, head_config, ret, name, filter_ret=False)
 
-    if compute_loss:
-      return ret, total_loss
-    else:
-      return ret
+    return (ret, total_loss) if compute_loss else ret
 
 
 class AlphaFold(hk.Module):
@@ -629,9 +615,7 @@ class Attention(hk.Module):
         dtype=q_data.dtype,
         init=hk.initializers.Constant(0.0))
 
-    output = jnp.einsum('bqhc,hco->bqo', weighted_avg, o_weights) + o_bias
-
-    return output
+    return jnp.einsum('bqhc,hco->bqo', weighted_avg, o_weights) + o_bias
 
 
 class GlobalAttention(hk.Module):
@@ -1123,8 +1107,7 @@ class PredictedLDDTHead(hk.Module):
                & (batch['resolution'] <= self.config.max_resolution)).astype(
                    jnp.float32)
 
-    output = {'loss': loss}
-    return output
+    return {'loss': loss}
 
 
 class PredictedAlignedErrorHead(hk.Module):
@@ -1270,8 +1253,7 @@ class ExperimentallyResolvedHead(hk.Module):
                & (batch['resolution'] <= self.config.max_resolution)).astype(
                    jnp.float32)
 
-    output = {'loss': loss}
-    return output
+    return {'loss': loss}
 
 
 def _layer_norm(axis=-1, name='layer_norm'):
@@ -2070,8 +2052,8 @@ class SingleTemplateEmbedding(hk.Module):
         unstack_inputs=True)
     points = [jnp.expand_dims(x, axis=-2) for x in affines.translation]
     affine_vec = affines.invert_point(points, extra_dims=1)
-    inv_distance_scalar = jax.lax.rsqrt(
-        1e-6 + sum([jnp.square(x) for x in affine_vec]))
+    inv_distance_scalar = jax.lax.rsqrt(1e-6 +
+                                        sum(jnp.square(x) for x in affine_vec))
 
     # Backbone affine mask: whether the residue has C, CA, N
     # (the template mask defined above only considers pseudo CB).

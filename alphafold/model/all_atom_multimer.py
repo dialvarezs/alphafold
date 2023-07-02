@@ -40,12 +40,9 @@ def _make_chi_atom_indices():
   for residue_name in residue_constants.restypes:
     residue_name = residue_constants.restype_1to3[residue_name]
     residue_chi_angles = residue_constants.chi_angles_atoms[residue_name]
-    atom_indices = []
-    for chi_angle in residue_chi_angles:
-      atom_indices.append(
-          [residue_constants.atom_order[atom] for atom in chi_angle])
-    for _ in range(4 - len(atom_indices)):
-      atom_indices.append([0, 0, 0, 0])  # For chi angles not defined on the AA.
+    atom_indices = [[residue_constants.atom_order[atom] for atom in chi_angle]
+                    for chi_angle in residue_chi_angles]
+    atom_indices.extend([0, 0, 0, 0] for _ in range(4 - len(atom_indices)))
     chi_atom_indices.append(atom_indices)
 
   chi_atom_indices.append([[0, 0, 0, 0]] * 4)  # For UNKNOWN residue.
@@ -76,8 +73,7 @@ def _make_renaming_matrices():
       for index, correspondence in enumerate(correspondences):
         renaming_matrix[index, correspondence] = 1.
     all_matrices[resname] = renaming_matrix.astype(np.float32)
-  renaming_matrices = np.stack([all_matrices[restype] for restype in restype_3])
-  return renaming_matrices
+  return np.stack([all_matrices[restype] for restype in restype_3])
 
 
 def _make_restype_atom37_mask():
@@ -103,8 +99,7 @@ def _make_restype_atom14_mask():
     restype_atom14_mask.append([(1. if name else 0.) for name in atom_names])
 
   restype_atom14_mask.append([0.] * 14)
-  restype_atom14_mask = np.array(restype_atom14_mask, dtype=np.float32)
-  return restype_atom14_mask
+  return np.array(restype_atom14_mask, dtype=np.float32)
 
 
 def _make_restype_atom37_to_atom14():
@@ -115,13 +110,12 @@ def _make_restype_atom37_to_atom14():
         residue_constants.restype_1to3[rt]]
     atom_name_to_idx14 = {name: i for i, name in enumerate(atom_names)}
     restype_atom37_to_atom14.append([
-        (atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0)
+        atom_name_to_idx14.get(name, 0)
         for name in residue_constants.atom_types
     ])
 
   restype_atom37_to_atom14.append([0] * 37)
-  restype_atom37_to_atom14 = np.array(restype_atom37_to_atom14, dtype=np.int32)
-  return restype_atom37_to_atom14
+  return np.array(restype_atom37_to_atom14, dtype=np.int32)
 
 
 def _make_restype_atom14_to_atom37():
@@ -136,8 +130,7 @@ def _make_restype_atom14_to_atom37():
     ])
   # Add dummy mapping for restype 'UNK'
   restype_atom14_to_atom37.append([0] * 14)
-  restype_atom14_to_atom37 = np.array(restype_atom14_to_atom37, dtype=np.int32)
-  return restype_atom14_to_atom37
+  return np.array(restype_atom14_to_atom37, dtype=np.int32)
 
 
 def _make_restype_atom14_is_ambiguous():
@@ -181,9 +174,7 @@ def _make_restype_rigidgroup_base_atom37_idx():
   # Translate atom names into atom37 indices.
   lookuptable = residue_constants.atom_order.copy()
   lookuptable[''] = 0
-  restype_rigidgroup_base_atom37_idx = np.vectorize(lambda x: lookuptable[x])(
-      base_atom_names)
-  return restype_rigidgroup_base_atom37_idx
+  return np.vectorize(lambda x: lookuptable[x])(base_atom_names)
 
 
 CHI_ATOM_INDICES = _make_chi_atom_indices()
@@ -226,7 +217,7 @@ def atom14_to_atom37(atom14_data: jnp.ndarray,  # (N, 14, ...)
                      aatype: jnp.ndarray
                     ) -> jnp.ndarray:  # (N, 37, ...)
   """Convert atom14 to atom37 representation."""
-  assert len(atom14_data.shape) in [2, 3]
+  assert len(atom14_data.shape) in {2, 3}
   idx_atom37_to_atom14 = get_atom37_to_atom14_map(aatype)
   atom37_data = utils.batched_gather(
       atom14_data, idx_atom37_to_atom14, batch_dims=1)
@@ -431,11 +422,7 @@ def torsion_angles_to_frames(
       chi2_frame_to_backb[:, None], chi3_frame_to_backb[:, None],
       chi4_frame_to_backb[:, None])
 
-  # Create the global frames.
-  # shape (N, 8)
-  all_frames_to_global = backb_to_global[:, None] @ all_frames_to_backb
-
-  return all_frames_to_global
+  return backb_to_global[:, None] @ all_frames_to_backb
 
 
 def frames_and_literature_positions_to_atom14_pos(
@@ -775,11 +762,7 @@ def find_optimal_renaming(
   per_res_lddt = jnp.sum(mask * lddt, axis=[1, 2, 3])
   alt_per_res_lddt = jnp.sum(mask * alt_lddt, axis=[1, 2, 3])
 
-  # Decide for each residue, whether alternative naming is better.
-  # shape (N)
-  alt_naming_is_better = (alt_per_res_lddt < per_res_lddt).astype(jnp.float32)
-
-  return alt_naming_is_better  # shape (N)
+  return (alt_per_res_lddt < per_res_lddt).astype(jnp.float32)
 
 
 def frame_aligned_point_error(
@@ -866,12 +849,9 @@ def get_chi_atom_indices():
   for residue_name in residue_constants.restypes:
     residue_name = residue_constants.restype_1to3[residue_name]
     residue_chi_angles = residue_constants.chi_angles_atoms[residue_name]
-    atom_indices = []
-    for chi_angle in residue_chi_angles:
-      atom_indices.append(
-          [residue_constants.atom_order[atom] for atom in chi_angle])
-    for _ in range(4 - len(atom_indices)):
-      atom_indices.append([0, 0, 0, 0])  # For chi angles not defined on the AA.
+    atom_indices = [[residue_constants.atom_order[atom] for atom in chi_angle]
+                    for chi_angle in residue_chi_angles]
+    atom_indices.extend([0, 0, 0, 0] for _ in range(4 - len(atom_indices)))
     chi_atom_indices.append(atom_indices)
 
   chi_atom_indices.append([[0, 0, 0, 0]] * 4)  # For UNKNOWN residue.

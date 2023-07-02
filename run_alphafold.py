@@ -183,7 +183,6 @@ def predict_structure(
     models_to_relax: ModelsToRelax):
   """Predicts structure using AlphaFold for the given sequence."""
   logging.info('Predicting %s', fasta_name)
-  timings = {}
   output_dir = os.path.join(output_dir_base, fasta_name)
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -196,8 +195,7 @@ def predict_structure(
   feature_dict = data_pipeline.process(
       input_fasta_path=fasta_path,
       msa_output_dir=msa_output_dir)
-  timings['features'] = time.time() - t_0
-
+  timings = {'features': time.time() - t_0}
   # Write out features as a pickled dictionary.
   features_output_path = os.path.join(output_dir, 'features.pkl')
   with open(features_output_path, 'wb') as f:
@@ -349,11 +347,7 @@ def main(argv):
   _check_flag('uniprot_database_path', 'model_preset',
               should_be_set=run_multimer_system)
 
-  if FLAGS.model_preset == 'monomer_casp14':
-    num_ensemble = 8
-  else:
-    num_ensemble = 1
-
+  num_ensemble = 8 if FLAGS.model_preset == 'monomer_casp14' else 1
   # Check for duplicate FASTA file names.
   fasta_names = [pathlib.Path(p).stem for p in FLAGS.fasta_paths]
   if len(fasta_names) != len(set(fasta_names)):

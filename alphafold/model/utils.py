@@ -62,10 +62,7 @@ def bfloat16_context():
 
 
 def final_init(config):
-  if config.zero_init:
-    return 'zeros'
-  else:
-    return 'linear'
+  return 'zeros' if config.zero_init else 'linear'
 
 
 def batched_gather(params, indices, axis=0, batch_dims=0):

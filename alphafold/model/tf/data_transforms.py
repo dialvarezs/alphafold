@@ -106,8 +106,11 @@ def correct_msa_restypes(protein):
   for k in protein:
     if 'profile' in k:  # Include both hhblits and psiblast profiles
       num_dim = protein[k].shape.as_list()[-1]
-      assert num_dim in [20, 21, 22], (
-          'num_dim for %s out of expected range: %s' % (k, num_dim))
+      assert num_dim in [
+          20,
+          21,
+          22,
+      ], f'num_dim for {k} out of expected range: {num_dim}'
       protein[k] = tf.tensordot(protein[k], perm_matrix[:num_dim, :num_dim], 1)
   return protein
 
@@ -181,7 +184,7 @@ def sample_msa(protein, max_seq, keep_extra):
   for k in _MSA_FEATURE_NAMES:
     if k in protein:
       if keep_extra:
-        protein['extra_' + k] = tf.gather(protein[k], not_sel_seq)
+        protein[f'extra_{k}'] = tf.gather(protein[k], not_sel_seq)
       protein[k] = tf.gather(protein[k], sel_seq)
 
   return protein
@@ -194,16 +197,16 @@ def crop_extra_msa(protein, max_extra_msa):
   num_sel = tf.minimum(max_extra_msa, num_seq)
   select_indices = tf.random_shuffle(tf.range(0, num_seq))[:num_sel]
   for k in _MSA_FEATURE_NAMES:
-    if 'extra_' + k in protein:
-      protein['extra_' + k] = tf.gather(protein['extra_' + k], select_indices)
+    if f'extra_{k}' in protein:
+      protein[f'extra_{k}'] = tf.gather(protein[f'extra_{k}'], select_indices)
 
   return protein
 
 
 def delete_extra_msa(protein):
   for k in _MSA_FEATURE_NAMES:
-    if 'extra_' + k in protein:
-      del protein['extra_' + k]
+    if f'extra_{k}' in protein:
+      del protein[f'extra_{k}']
   return protein
 
 
@@ -341,11 +344,14 @@ def pseudo_beta_fn(aatype, all_atom_positions, all_atom_masks):
 def make_pseudo_beta(protein, prefix=''):
   """Create pseudo-beta (alpha for glycine) position and mask."""
   assert prefix in ['', 'template_']
-  protein[prefix + 'pseudo_beta'], protein[prefix + 'pseudo_beta_mask'] = (
-      pseudo_beta_fn(
-          protein['template_aatype' if prefix else 'all_atom_aatype'],
-          protein[prefix + 'all_atom_positions'],
-          protein['template_all_atom_masks' if prefix else 'all_atom_mask']))
+  (
+      protein[f'{prefix}pseudo_beta'],
+      protein[f'{prefix}pseudo_beta_mask'],
+  ) = pseudo_beta_fn(
+      protein['template_aatype' if prefix else 'all_atom_aatype'],
+      protein[f'{prefix}all_atom_positions'],
+      protein['template_all_atom_masks' if prefix else 'all_atom_mask'],
+  )
   return protein
 
 
@@ -433,8 +439,7 @@ def make_fixed_size(protein, shape_schema, msa_cluster_size, extra_msa_size,
     pad_size = [
         pad_size_map.get(s2, None) or s1 for (s1, s2) in zip(shape, schema)
     ]
-    padding = [(0, p - tf.shape(v)[i]) for i, p in enumerate(pad_size)]
-    if padding:
+    if padding := [(0, p - tf.shape(v)[i]) for i, p in enumerate(pad_size)]:
       protein[k] = tf.pad(
           v, padding, name=f'pad_to_fixed_{k}')
       protein[k].set_shape(pad_size)
@@ -579,7 +584,7 @@ def make_atom14_masks(protein):
 
     atom_name_to_idx14 = {name: i for i, name in enumerate(atom_names)}
     restype_atom37_to_atom14.append([
-        (atom_name_to_idx14[name] if name in atom_name_to_idx14 else 0)
+        atom_name_to_idx14.get(name, 0)
         for name in residue_constants.atom_types
     ])
 

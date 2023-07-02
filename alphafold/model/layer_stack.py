@@ -50,17 +50,11 @@ def nullcontext():
 
 
 def maybe_with_rng(key):
-  if key is not None:
-    return hk.with_rng(key)
-  else:
-    return nullcontext()
+  return hk.with_rng(key) if key is not None else nullcontext()
 
 
 def maybe_fold_in(key, data):
-  if key is not None:
-    return jax.random.fold_in(key, data)
-  else:
-    return None
+  return jax.random.fold_in(key, data) if key is not None else None
 
 
 class _LayerStack(hk.Module):

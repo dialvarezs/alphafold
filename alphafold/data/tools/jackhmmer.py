@@ -154,14 +154,11 @@ class Jackhmmer:
       else:
         sto = parsers.truncate_stockholm_msa(sto_path, max_sequences)
 
-    raw_output = dict(
-        sto=sto,
-        tbl=tbl,
-        stderr=stderr,
-        n_iter=self.n_iter,
-        e_value=self.e_value)
-
-    return raw_output
+    return dict(sto=sto,
+                tbl=tbl,
+                stderr=stderr,
+                n_iter=self.n_iter,
+                e_value=self.e_value)
 
   def query(self,
             input_fasta_path: str,
@@ -176,12 +173,9 @@ class Jackhmmer:
     ) -> Sequence[Sequence[Mapping[str, Any]]]:
     """Queries the database for multiple queries using Jackhmmer."""
     if self.num_streamed_chunks is None:
-      single_chunk_results = []
-      for input_fasta_path in input_fasta_paths:
-        single_chunk_results.append([self._query_chunk(
-            input_fasta_path, self.database_path, max_sequences)])
-      return single_chunk_results
-
+      return [[
+          self._query_chunk(input_fasta_path, self.database_path, max_sequences)
+      ] for input_fasta_path in input_fasta_paths]
     db_basename = os.path.basename(self.database_path)
     db_remote_chunk = lambda db_idx: f'{self.database_path}.{db_idx}'
     db_local_chunk = lambda db_idx: f'/tmp/ramdisk/{db_basename}.{db_idx}'

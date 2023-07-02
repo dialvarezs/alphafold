@@ -44,9 +44,7 @@ def parse_tfexample(
       for k, v in features.items()
   }
   parsed_features = tf.io.parse_single_example(raw_data, feature_map)
-  reshaped_features = parse_reshape_logic(parsed_features, features, key=key)
-
-  return reshaped_features
+  return parse_reshape_logic(parsed_features, features, key=key)
 
 
 def _first(tensor: tf.Tensor) -> tf.Tensor:
@@ -89,22 +87,27 @@ def parse_reshape_logic(
       new_shape_size *= tf.cast(dim, tf.int32)
 
     assert_equal = tf.assert_equal(
-        tf.size(v), new_shape_size,
-        name="assert_%s_shape_correct" % k,
+        tf.size(v),
+        new_shape_size,
+        name=f"assert_{k}_shape_correct",
         message="The size of feature %s (%s) could not be reshaped "
-        "into %s" % (k, tf.size(v), new_shape))
+        "into %s" % (k, tf.size(v), new_shape),
+    )
     if "template" not in k:
       # Make sure the feature we are reshaping is not empty.
       assert_non_empty = tf.assert_greater(
-          tf.size(v), 0, name="assert_%s_non_empty" % k,
+          tf.size(v),
+          0,
+          name=f"assert_{k}_non_empty",
           message="The feature %s is not set in the tf.Example. Either do not "
           "request the feature or use a tf.Example that has the "
-          "feature set." % k)
+          "feature set." % k,
+      )
       with tf.control_dependencies([assert_non_empty, assert_equal]):
-        parsed_features[k] = tf.reshape(v, new_shape, name="reshape_%s" % k)
+        parsed_features[k] = tf.reshape(v, new_shape, name=f"reshape_{k}")
     else:
       with tf.control_dependencies([assert_equal]):
-        parsed_features[k] = tf.reshape(v, new_shape, name="reshape_%s" % k)
+        parsed_features[k] = tf.reshape(v, new_shape, name=f"reshape_{k}")
 
   return parsed_features
 
@@ -116,9 +119,7 @@ def _make_features_metadata(
   required_features = ["aatype", "sequence", "seq_length"]
   feature_names = list(set(feature_names) | set(required_features))
 
-  features_metadata = {name: protein_features.FEATURES[name]
-                       for name in feature_names}
-  return features_metadata
+  return {name: protein_features.FEATURES[name] for name in feature_names}
 
 
 def create_tensor_dict(

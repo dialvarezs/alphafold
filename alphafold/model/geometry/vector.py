@@ -49,8 +49,8 @@ class Vec3Array:
     if hasattr(self.x, 'dtype'):
       assert self.x.dtype == self.y.dtype
       assert self.x.dtype == self.z.dtype
-      assert all([x == y for x, y in zip(self.x.shape, self.y.shape)])
-      assert all([x == z for x, z in zip(self.x.shape, self.z.shape)])
+      assert all(x == y for x, y in zip(self.x.shape, self.y.shape))
+      assert all(x == z for x, z in zip(self.x.shape, self.z.shape))
 
   def __add__(self, other: Vec3Array) -> Vec3Array:
     return jax.tree_map(lambda x, y: x + y, self, other)
@@ -180,8 +180,7 @@ def euclidean_distance(vec1: Vec3Array,
     shape will be result of broadcasting 'vec1' and 'vec2'
   """
   distance_sq = square_euclidean_distance(vec1, vec2, epsilon**2)
-  distance = jnp.sqrt(distance_sq)
-  return distance
+  return jnp.sqrt(distance_sq)
 
 
 def dihedral_angle(a: Vec3Array, b: Vec3Array, c: Vec3Array,

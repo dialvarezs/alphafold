@@ -102,7 +102,7 @@ class Rot3Array:
   def from_array(cls, array: jnp.ndarray) -> Rot3Array:
     """Construct Rot3Array Matrix from array of shape. [..., 3, 3]."""
     unstacked = utils.unstack(array, axis=-2)
-    unstacked = sum([utils.unstack(x, axis=-1) for x in unstacked], [])
+    unstacked = sum((utils.unstack(x, axis=-1) for x in unstacked), [])
     return cls(*unstacked)
 
   def to_array(self) -> jnp.ndarray:

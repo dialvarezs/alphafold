@@ -45,8 +45,7 @@ class RunAmberRelaxTest(absltest.TestCase):
     pdb_min, debug_info, num_violations = amber_relax.process(prot=test_prot)
 
     self.assertCountEqual(debug_info.keys(),
-                          set({'initial_energy', 'final_energy',
-                               'attempts', 'rmsd'}))
+                          {'initial_energy', 'final_energy', 'attempts', 'rmsd'})
     self.assertLess(debug_info['final_energy'], debug_info['initial_energy'])
     self.assertGreater(debug_info['rmsd'], 0)
 

@@ -53,12 +53,11 @@ def _make_chain_id_map(*,
   if len(sequences) > protein.PDB_MAX_CHAINS:
     raise ValueError('Cannot process more chains than the PDB format supports. '
                      f'Got {len(sequences)} chains.')
-  chain_id_map = {}
-  for chain_id, sequence, description in zip(
-      protein.PDB_CHAIN_IDS, sequences, descriptions):
-    chain_id_map[chain_id] = _FastaChain(
-        sequence=sequence, description=description)
-  return chain_id_map
+  return {
+      chain_id: _FastaChain(sequence=sequence, description=description)
+      for chain_id, sequence, description in zip(protein.PDB_CHAIN_IDS,
+                                                 sequences, descriptions)
+  }
 
 
 @contextlib.contextmanager
@@ -73,8 +72,7 @@ def convert_monomer_features(
     monomer_features: pipeline.FeatureDict,
     chain_id: str) -> pipeline.FeatureDict:
   """Reshapes and modifies monomer features for multimer models."""
-  converted = {}
-  converted['auth_chain_id'] = np.asarray(chain_id, dtype=np.object_)
+  converted = {'auth_chain_id': np.asarray(chain_id, dtype=np.object_)}
   unnecessary_leading_dim_feats = {
       'sequence', 'domain_name', 'num_alignments', 'seq_length'}
   for feature_name, feature in monomer_features.items():
@@ -108,7 +106,7 @@ def int_id_to_str_id(num: int) -> str:
   if num <= 0:
     raise ValueError(f'Only positive integers allowed, got {num}.')
 
-  num = num - 1  # 1-based indexing.
+  num -= 1
   output = []
   while num >= 0:
     output.append(chr(num % 26 + ord('A')))
@@ -233,9 +231,10 @@ class DataPipeline:
     valid_feats = msa_pairing.MSA_FEATURES + (
         'msa_species_identifiers',
     )
-    feats = {f'{k}_all_seq': v for k, v in all_seq_features.items()
-             if k in valid_feats}
-    return feats
+    return {
+        f'{k}_all_seq': v
+        for k, v in all_seq_features.items() if k in valid_feats
+    }
 
   def process(self,
               input_fasta_path: str,
