@@ -40,10 +40,7 @@ def _maybe_slice(array, i, slice_size, axis):
 
 
 def _maybe_get_size(array, axis):
-  if axis == PROXY:
-    return -1
-  else:
-    return array.shape[axis]
+  return -1 if axis == PROXY else array.shape[axis]
 
 
 def _expand_axes(axes, values, name='sharded_apply'):

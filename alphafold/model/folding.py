@@ -239,14 +239,9 @@ class InvariantPointAttention(hk.Module):
         jnp.swapaxes(x, -2, -3)
         for x in result_point_global]
 
-    # Features used in the linear output projection. Should have the size
-    # [num_query_residues, ?]
-    output_features = []
-
     result_scalar = jnp.reshape(
         result_scalar, [num_residues, num_head * num_scalar_v])
-    output_features.append(result_scalar)
-
+    output_features = [result_scalar]
     result_point_global = [
         jnp.reshape(r, [num_residues, num_head * num_point_v])
         for r in result_point_global]
@@ -477,8 +472,6 @@ class StructureModule(hk.Module):
   def __call__(self, representations, batch, is_training,
                safe_key=None):
     c = self.config
-    ret = {}
-
     if safe_key is None:
       safe_key = prng.SafeKey(hk.next_rng_key())
 
@@ -490,11 +483,12 @@ class StructureModule(hk.Module):
         is_training=is_training,
         safe_key=safe_key)
 
-    ret['representations'] = {'structure_module': output['act']}
-
-    ret['traj'] = output['affine'] * jnp.array([1.] * 4 +
-                                               [c.position_scale] * 3)
-
+    ret = {
+        'representations': {
+            'structure_module': output['act']
+        },
+        'traj': output['affine'] * jnp.array([1.0] * 4 + [c.position_scale] * 3),
+    }
     ret['sidechains'] = output['sc']
 
     atom14_pred_positions = r3.vecs_to_tensor(output['sc']['atom_pos'])[-1]
@@ -511,16 +505,13 @@ class StructureModule(hk.Module):
 
     if self.compute_loss:
       return ret
-    else:
-      no_loss_features = ['final_atom_positions', 'final_atom_mask',
-                          'representations']
-      no_loss_ret = {k: ret[k] for k in no_loss_features}
-      return no_loss_ret
+    no_loss_features = ['final_atom_positions', 'final_atom_mask',
+                        'representations']
+    return {k: ret[k] for k in no_loss_features}
 
   def loss(self, value, batch):
-    ret = {'loss': 0.}
+    ret = {'loss': 0.0, 'metrics': {}}
 
-    ret['metrics'] = {}
     # If requested, compute in-graph metrics.
     if self.config.compute_in_graph_metrics:
       atom14_pred_positions = value['final_atom14_positions']
@@ -826,16 +817,20 @@ def compute_violation_metrics(
     ) -> Dict[str, jnp.ndarray]:
   """Compute several metrics to assess the structural violations."""
 
-  ret = {}
   extreme_ca_ca_violations = all_atom.extreme_ca_ca_distance_violations(
       pred_atom_positions=atom14_pred_positions,
       pred_atom_mask=batch['atom14_atom_exists'].astype(jnp.float32),
       residue_index=batch['residue_index'].astype(jnp.float32))
-  ret['violations_extreme_ca_ca_distance'] = extreme_ca_ca_violations
-  ret['violations_between_residue_bond'] = utils.mask_mean(
-      mask=batch['seq_mask'],
-      value=violations['between_residues'][
-          'connections_per_residue_violation_mask'])
+  ret = {
+      'violations_extreme_ca_ca_distance':
+      extreme_ca_ca_violations,
+      'violations_between_residue_bond':
+      utils.mask_mean(
+          mask=batch['seq_mask'],
+          value=violations['between_residues']
+          ['connections_per_residue_violation_mask'],
+      ),
+  }
   ret['violations_between_residue_clash'] = utils.mask_mean(
       mask=batch['seq_mask'],
       value=jnp.max(
@@ -1002,8 +997,8 @@ class MultiRigidSidechain(hk.Module):
     pred_positions = all_atom.frames_and_literature_positions_to_atom14_pos(
         aatype, all_frames_to_global)
 
-    outputs.update({
+    outputs |= {
         'atom_pos': pred_positions,  # r3.Vecs (N, 14)
         'frames': all_frames_to_global,  # r3.Rigids (N, 8)
-    })
+    }
     return outputs

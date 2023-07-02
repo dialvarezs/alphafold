@@ -23,7 +23,7 @@ def get_item(instance, key):
   for field in get_array_fields(instance):
     num_trailing_dims = field.metadata.get('num_trailing_dims', 0)
     this_key = key
-    if isinstance(key, tuple) and Ellipsis in this_key:
+    if isinstance(this_key, tuple) and Ellipsis in this_key:
       this_key += (slice(None),) * num_trailing_dims
     sliced[field.name] = getattr(instance, field.name)[this_key]
   return dataclasses.replace(instance, **sliced)
@@ -35,16 +35,12 @@ def get_shape(instance):
   first_field = dataclasses.fields(instance)[0]
   num_trailing_dims = first_field.metadata.get('num_trailing_dims', None)
   value = getattr(instance, first_field.name)
-  if num_trailing_dims:
-    return value.shape[:-num_trailing_dims]
-  else:
-    return value.shape
+  return value.shape[:-num_trailing_dims] if num_trailing_dims else value.shape
 
 
 def get_len(instance):
   """Returns length for given instance of dataclass."""
-  shape = instance.shape
-  if shape:
+  if shape := instance.shape:
     return shape[0]
   else:
     raise TypeError('len() of unsized object')  # Match jax.numpy behavior.
@@ -54,10 +50,10 @@ def get_len(instance):
 def get_dtype(instance):
   """Returns Dtype for given instance of dataclass."""
   fields = dataclasses.fields(instance)
-  sets_dtype = [
-      field.name for field in fields if field.metadata.get('sets_dtype', False)
-  ]
-  if sets_dtype:
+  if sets_dtype := [
+      field.name for field in fields
+      if field.metadata.get('sets_dtype', False)
+  ]:
     assert len(sets_dtype) == 1, 'at most field can set dtype'
     field_value = getattr(instance, sets_dtype[0])
   elif instance.same_dtype:
@@ -82,7 +78,6 @@ def post_init(instance):
   """Validate instance has same shapes & dtypes."""
   array_fields = get_array_fields(instance)
   arrays = list(get_array_fields(instance, return_values=True).values())
-  first_field = array_fields[0]
   # These slightly weird constructions about checking whether the leaves are
   # actual arrays is since e.g. vmap internally relies on being able to
   # construct pytree's with object() as leaves, this would break the checking
@@ -94,10 +89,10 @@ def post_init(instance):
     dtype = None
   if dtype is not None:
     first_shape = instance.shape
+    first_field = array_fields[0]
     for array, field in zip(arrays, array_fields):
       field_shape = array.shape
-      num_trailing_dims = field.metadata.get('num_trailing_dims', None)
-      if num_trailing_dims:
+      if num_trailing_dims := field.metadata.get('num_trailing_dims', None):
         array_shape = array.shape
         field_shape = array_shape[:-num_trailing_dims]
         msg = (f'field {field} should have number of trailing dims'
@@ -112,16 +107,11 @@ def post_init(instance):
 
       field_dtype = array.dtype
 
-      allowed_metadata_dtypes = field.metadata.get('allowed_dtypes', [])
-      if allowed_metadata_dtypes:
+      if allowed_metadata_dtypes := field.metadata.get('allowed_dtypes', []):
         msg = f'Dtype is {field_dtype} but must be in {allowed_metadata_dtypes}'
         assert field_dtype in allowed_metadata_dtypes, msg
 
-      if 'dtype' in field.metadata:
-        target_dtype = field.metadata['dtype']
-      else:
-        target_dtype = dtype
-
+      target_dtype = field.metadata['dtype'] if 'dtype' in field.metadata else dtype
       msg = f'Dtype is {field_dtype} but must be {target_dtype}'
       assert field_dtype == target_dtype, msg
 
@@ -145,12 +135,12 @@ def flatten(instance):
 def make_metadata_class(cls):
   metadata_fields = get_fields(cls,
                                lambda x: x.metadata.get('is_metadata', False))
-  metadata_cls = dataclasses.make_dataclass(
-      cls_name='Meta' + cls.__name__,
+  return dataclasses.make_dataclass(
+      cls_name=f'Meta{cls.__name__}',
       fields=[(field.name, field.type, field) for field in metadata_fields],
       frozen=True,
-      eq=True)
-  return metadata_cls
+      eq=True,
+  )
 
 
 def get_fields(cls_or_instance, filterfn, return_values=False):

@@ -28,8 +28,7 @@ def _to_a3m(sequences: Sequence[str]) -> str:
   names = ['sequence %d' % i for i in range(1, len(sequences) + 1)]
   a3m = []
   for sequence, name in zip(sequences, names):
-    a3m.append(u'>' + name + u'\n')
-    a3m.append(sequence + u'\n')
+    a3m.extend((f'>{name}' + u'\n', sequence + u'\n'))
   return ''.join(a3m)
 
 

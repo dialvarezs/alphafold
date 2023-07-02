@@ -264,7 +264,7 @@ def _keep_line(line: str, seqnames: Set[str]) -> bool:
     return True
   if line.startswith('#=GC RF'):  # Reference Annotation Line
     return True
-  if line[:4] == '#=GS':  # Description lines - keep if sequence in list.
+  if line.startswith('#=GS'):  # Description lines - keep if sequence in list.
     _, seqname, _ = line.split(maxsplit=2)
     return seqname in seqnames
   elif line.startswith('#'):  # Other markup - filter out
@@ -290,10 +290,7 @@ def truncate_stockholm_msa(stockholm_msa_path: str, max_sequences: int) -> str:
           break
 
     f.seek(0)
-    for line in f:
-      if _keep_line(line, seqnames):
-        filtered_lines.append(line)
-
+    filtered_lines.extend(line for line in f if _keep_line(line, seqnames))
   return ''.join(filtered_lines)
 
 
@@ -360,15 +357,13 @@ def deduplicate_stockholm_msa(stockholm_msa: str) -> str:
     masked_alignment = ''.join(itertools.compress(alignment, mask))
     if masked_alignment in seen_sequences:
       continue
-    else:
-      seen_sequences.add(masked_alignment)
-      seqnames.add(seqname)
+    seen_sequences.add(masked_alignment)
+    seqnames.add(seqname)
 
-  filtered_lines = []
-  for line in stockholm_msa.splitlines():
-    if _keep_line(line, seqnames):
-      filtered_lines.append(line)
-
+  filtered_lines = [
+      line for line in stockholm_msa.splitlines()
+      if _keep_line(line, seqnames)
+  ]
   return '\n'.join(filtered_lines) + '\n'
 
 
@@ -501,8 +496,9 @@ def parse_hhr(hhr_string: str) -> Sequence[TemplateHit]:
   hits = []
   if block_starts:
     block_starts.append(len(lines))  # Add the end of the final block.
-    for i in range(len(block_starts) - 1):
-      hits.append(_parse_hhr_hit(lines[block_starts[i]:block_starts[i + 1]]))
+    hits.extend(
+        _parse_hhr_hit(lines[block_starts[i]:block_starts[i + 1]])
+        for i in range(len(block_starts) - 1))
   return hits
 
 
@@ -551,22 +547,19 @@ class HitMetadata:
 
 def _parse_hmmsearch_description(description: str) -> HitMetadata:
   """Parses the hmmsearch A3M sequence description line."""
-  # Example 1: >4pqx_A/2-217 [subseq from] mol:protein length:217  Free text
-  # Example 2: >5g3r_A/1-55 [subseq from] mol:protein length:352
-  match = re.match(
+  if match := re.match(
       r'^>?([a-z0-9]+)_(\w+)/([0-9]+)-([0-9]+).*protein length:([0-9]+) *(.*)$',
-      description.strip())
-
-  if not match:
+      description.strip(),
+  ):
+    return HitMetadata(
+        pdb_id=match[1],
+        chain=match[2],
+        start=int(match[3]),
+        end=int(match[4]),
+        length=int(match[5]),
+        text=match[6])
+  else:
     raise ValueError(f'Could not parse description: "{description}".')
-
-  return HitMetadata(
-      pdb_id=match[1],
-      chain=match[2],
-      start=int(match[3]),
-      end=int(match[4]),
-      length=int(match[5]),
-      text=match[6])
 
 
 def parse_hmmsearch_a3m(query_sequence: str,
@@ -595,7 +588,7 @@ def parse_hmmsearch_a3m(query_sequence: str,
       continue  # Skip non-protein chains.
     metadata = _parse_hmmsearch_description(hit_description)
     # Aligned columns are only the match states.
-    aligned_cols = sum([r.isupper() and r != '-' for r in hit_sequence])
+    aligned_cols = sum(r.isupper() and r != '-' for r in hit_sequence)
     indices_hit = _get_indices(hit_sequence, start=metadata.start - 1)
 
     hit = TemplateHit(

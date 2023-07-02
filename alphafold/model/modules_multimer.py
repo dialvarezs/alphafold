@@ -66,8 +66,7 @@ def gumbel_noise(key: jnp.ndarray, shape: Sequence[int]) -> jnp.ndarray:
   uniform = utils.padding_consistent_rng(jax.random.uniform)
   uniform_noise = uniform(
       key, shape=shape, dtype=jnp.float32, minval=0., maxval=1.)
-  gumbel = -jnp.log(-jnp.log(uniform_noise + epsilon) + epsilon)
-  return gumbel
+  return -jnp.log(-jnp.log(uniform_noise + epsilon) + epsilon)
 
 
 def gumbel_max_sample(key: jnp.ndarray, logits: jnp.ndarray) -> jnp.ndarray:
@@ -277,7 +276,7 @@ def sample_msa(key, batch, max_seq):
 
   for k in ['msa', 'deletion_matrix', 'msa_mask', 'bert_mask']:
     if k in batch:
-      batch['extra_' + k] = batch[k][extra_idx]
+      batch[f'extra_{k}'] = batch[k][extra_idx]
       batch[k] = batch[k][sel_idx]
 
   return batch

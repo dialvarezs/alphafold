@@ -77,8 +77,7 @@ class CleanupTest(absltest.TestCase):
     self.assertLen(missing_terminals_by_residue, 1)
     has_missing_terminal = [r.name for r in missing_terminals_by_residue.keys()]
     self.assertCountEqual(has_missing_terminal, ['PRO'])
-    self.assertCountEqual([t for t in missing_terminals_by_residue.values()],
-                          [['OXT']])
+    self.assertCountEqual(list(missing_terminals_by_residue.values()), [['OXT']])
 
   def test_remove_heterogens(self):
     pdb_lines = ['SEQRES   1 A    1  GLY',
@@ -92,7 +91,7 @@ class CleanupTest(absltest.TestCase):
     structure = _pdb_to_structure(result)
     self.assertCountEqual([res.get_name() for res in structure.iter_residues()],
                           ['GLY'])
-    self.assertEqual(alterations['removed_heterogens'], set(['HOH']))
+    self.assertEqual(alterations['removed_heterogens'], {'HOH'})
 
   def test_fix_nonstandard_residues(self):
     pdb_lines = ['SEQRES   1 A    1  DAL',

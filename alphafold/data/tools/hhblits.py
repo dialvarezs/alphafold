@@ -78,7 +78,7 @@ class HHBlits:
     self.databases = databases
 
     for database_path in self.databases:
-      if not glob.glob(database_path + '_*'):
+      if not glob.glob(f'{database_path}_*'):
         logging.error('Could not find HHBlits database %s', database_path)
         raise ValueError(f'Could not find HHBlits database {database_path}')
 
@@ -101,8 +101,7 @@ class HHBlits:
 
       db_cmd = []
       for db_path in self.databases:
-        db_cmd.append('-d')
-        db_cmd.append(db_path)
+        db_cmd.extend(('-d', db_path))
       cmd = [
           self.binary_path,
           '-i', input_fasta_path,

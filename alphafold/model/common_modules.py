@@ -30,23 +30,20 @@ def get_initializer_scale(initializer_name, input_shape):
   """Get Initializer for weights and scale to multiply activations by."""
 
   if initializer_name == 'zeros':
-    w_init = hk.initializers.Constant(0.0)
-  else:
-    # fan-in scaling
-    scale = 1.
-    for channel_dim in input_shape:
-      scale /= channel_dim
-    if initializer_name == 'relu':
-      scale *= 2
+    return hk.initializers.Constant(0.0)
+  # fan-in scaling
+  scale = 1.
+  for channel_dim in input_shape:
+    scale /= channel_dim
+  if initializer_name == 'relu':
+    scale *= 2
 
-    noise_scale = scale
+  noise_scale = scale
 
-    stddev = np.sqrt(noise_scale)
-    # Adjust stddev for truncation.
-    stddev = stddev / TRUNCATED_NORMAL_STDDEV_FACTOR
-    w_init = hk.initializers.TruncatedNormal(mean=0.0, stddev=stddev)
-
-  return w_init
+  stddev = np.sqrt(noise_scale)
+  # Adjust stddev for truncation.
+  stddev = stddev / TRUNCATED_NORMAL_STDDEV_FACTOR
+  return hk.initializers.TruncatedNormal(mean=0.0, stddev=stddev)
 
 
 class Linear(hk.Module):

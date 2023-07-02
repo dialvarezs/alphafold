@@ -161,10 +161,7 @@ def quat_multiply(quat1, quat2):
 
 def apply_rot_to_vec(rot, vec, unstack=False):
   """Multiply rotation matrix by a vector."""
-  if unstack:
-    x, y, z = [vec[:, i] for i in range(3)]
-  else:
-    x, y, z = vec
+  x, y, z = [vec[:, i] for i in range(3)] if unstack else vec
   return [rot[0][0] * x + rot[0][1] * y + rot[0][2] * z,
           rot[1][0] * x + rot[1][1] * y + rot[1][2] * z,
           rot[2][0] * x + rot[2][1] * y + rot[2][2] * z]
@@ -236,9 +233,10 @@ class QuatAffine(object):
     """Return a new QuatAffine with tensor_fn applied to the rotation part."""
     return QuatAffine(
         tensor_fn(self.quaternion),
-        [x for x in self.translation],
+        list(self.translation),
         rotation=[[tensor_fn(x) for x in row] for row in self.rotation],
-        normalize=False)
+        normalize=False,
+    )
 
   def scale_translation(self, position_scale):
     """Return a new quat affine with a different scale for translation."""
@@ -246,8 +244,9 @@ class QuatAffine(object):
     return QuatAffine(
         self.quaternion,
         [x * position_scale for x in self.translation],
-        rotation=[[x for x in row] for row in self.rotation],
-        normalize=False)
+        rotation=[list(row) for row in self.rotation],
+        normalize=False,
+    )
 
   @classmethod
   def from_tensor(cls, tensor, normalize=False):

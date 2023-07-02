@@ -32,13 +32,15 @@ def get_confidence_metrics(
     prediction_result: Mapping[str, Any],
     multimer_mode: bool) -> Mapping[str, Any]:
   """Post processes prediction_result to get confidence metrics."""
-  confidence_metrics = {}
-  confidence_metrics['plddt'] = confidence.compute_plddt(
-      prediction_result['predicted_lddt']['logits'])
+  confidence_metrics = {
+      'plddt':
+      confidence.compute_plddt(prediction_result['predicted_lddt']['logits'])
+  }
   if 'predicted_aligned_error' in prediction_result:
-    confidence_metrics.update(confidence.compute_predicted_aligned_error(
+    confidence_metrics |= confidence.compute_predicted_aligned_error(
         logits=prediction_result['predicted_aligned_error']['logits'],
-        breaks=prediction_result['predicted_aligned_error']['breaks']))
+        breaks=prediction_result['predicted_aligned_error']['breaks'],
+    )
     confidence_metrics['ptm'] = confidence.predicted_tm_score(
         logits=prediction_result['predicted_aligned_error']['logits'],
         breaks=prediction_result['predicted_aligned_error']['breaks'],

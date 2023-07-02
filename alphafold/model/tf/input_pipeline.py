@@ -66,8 +66,6 @@ def ensembled_map_fns(data_config):
   common_cfg = data_config.common
   eval_cfg = data_config.eval
 
-  map_fns = []
-
   if common_cfg.reduce_msa_clusters_by_max_templates:
     pad_msa_clusters = eval_cfg.max_msa_clusters - eval_cfg.max_templates
   else:
@@ -76,11 +74,7 @@ def ensembled_map_fns(data_config):
   max_msa_clusters = pad_msa_clusters
   max_extra_msa = common_cfg.max_extra_msa
 
-  map_fns.append(
-      data_transforms.sample_msa(
-          max_msa_clusters,
-          keep_extra=True))
-
+  map_fns = [data_transforms.sample_msa(max_msa_clusters, keep_extra=True)]
   if 'masked_msa' in common_cfg:
     # Masked MSA should come *before* MSA clustering so that
     # the clustering and full MSA profile do not leak information about
@@ -90,9 +84,10 @@ def ensembled_map_fns(data_config):
                                         eval_cfg.masked_msa_replace_fraction))
 
   if common_cfg.msa_cluster_features:
-    map_fns.append(data_transforms.nearest_neighbor_clusters())
-    map_fns.append(data_transforms.summarize_clusters())
-
+    map_fns.extend((
+        data_transforms.nearest_neighbor_clusters(),
+        data_transforms.summarize_clusters(),
+    ))
   # Crop after creating the cluster profiles.
   if max_extra_msa:
     map_fns.append(data_transforms.crop_extra_msa(max_extra_msa))
@@ -101,21 +96,25 @@ def ensembled_map_fns(data_config):
 
   map_fns.append(data_transforms.make_msa_feat())
 
-  crop_feats = dict(eval_cfg.feat)
-
   if eval_cfg.fixed_size:
-    map_fns.append(data_transforms.select_feat(list(crop_feats)))
-    map_fns.append(data_transforms.random_crop_to_size(
-        eval_cfg.crop_size,
-        eval_cfg.max_templates,
-        crop_feats,
-        eval_cfg.subsample_templates))
-    map_fns.append(data_transforms.make_fixed_size(
-        crop_feats,
-        pad_msa_clusters,
-        common_cfg.max_extra_msa,
-        eval_cfg.crop_size,
-        eval_cfg.max_templates))
+    crop_feats = dict(eval_cfg.feat)
+
+    map_fns.extend((
+        data_transforms.select_feat(list(crop_feats)),
+        data_transforms.random_crop_to_size(
+            eval_cfg.crop_size,
+            eval_cfg.max_templates,
+            crop_feats,
+            eval_cfg.subsample_templates,
+        ),
+        data_transforms.make_fixed_size(
+            crop_feats,
+            pad_msa_clusters,
+            common_cfg.max_extra_msa,
+            eval_cfg.crop_size,
+            eval_cfg.max_templates,
+        ),
+    ))
   else:
     map_fns.append(data_transforms.crop_templates(eval_cfg.max_templates))
 

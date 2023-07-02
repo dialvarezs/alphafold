@@ -121,7 +121,7 @@ def show_msa_info(
             f'{sequence_index}')
   plt.plot(np.sum(msa_arr != aa_map['-'], axis=0), color='black')
   plt.ylabel('Non-Gap Count')
-  plt.yticks(range(0, total_msa_size + 1, max(1, int(total_msa_size / 3))))
+  plt.yticks(range(0, total_msa_size + 1, max(1, total_msa_size // 3)))
   plt.show()
 
 

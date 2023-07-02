@@ -36,11 +36,14 @@ TemplateSearcher = Union[hhsearch.HHSearch, hmmsearch.Hmmsearch]
 def make_sequence_features(
     sequence: str, description: str, num_res: int) -> FeatureDict:
   """Constructs a feature dict of sequence features."""
-  features = {}
-  features['aatype'] = residue_constants.sequence_to_onehot(
-      sequence=sequence,
-      mapping=residue_constants.restype_order_with_x,
-      map_unknown_to_x=True)
+  features = {
+      'aatype':
+      residue_constants.sequence_to_onehot(
+          sequence=sequence,
+          mapping=residue_constants.restype_order_with_x,
+          map_unknown_to_x=True,
+      )
+  }
   features['between_segment_residues'] = np.zeros((num_res,), dtype=np.int32)
   features['domain_name'] = np.array([description.encode('utf-8')],
                                      dtype=np.object_)
@@ -75,8 +78,7 @@ def make_msa_features(msas: Sequence[parsers.Msa]) -> FeatureDict:
 
   num_res = len(msas[0].sequences[0])
   num_alignments = len(int_msa)
-  features = {}
-  features['deletion_matrix_int'] = np.array(deletion_matrix, dtype=np.int32)
+  features = {'deletion_matrix_int': np.array(deletion_matrix, dtype=np.int32)}
   features['msa'] = np.array(int_msa, dtype=np.int32)
   features['num_alignments'] = np.array(
       [num_alignments] * num_res, dtype=np.int32)
